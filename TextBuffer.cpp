@@ -61,6 +61,22 @@ int PieceTable::indexLine(int index) const{
     return 1;
 }
 
+int PieceTable::lineIndex(int index) const {
+    Node* currNode = mPieces;
+    int currentLine = 1;
+    int characterDisposition = 0;
+    while (currNode) {
+        if (currentLine != currNode->line) {
+            characterDisposition += currNode->startIndex;
+            currentLine = currNode->line;
+        }
+        if (index <= currNode->startIndex + currNode->data.length()) {
+            return index - characterDisposition - (currentLine -1);
+        }
+        currNode = currNode->next;
+    }
+}
+
 void PieceTable::replace(int startIndex, int endIndex, const std::string& data) {
     if (startIndex < 0 || endIndex > mLength || startIndex > endIndex) {
        throw std::out_of_range("Invalid start or end index");

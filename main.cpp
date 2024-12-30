@@ -1,5 +1,7 @@
 #include <iostream>
 #include <SFML/Graphics.hpp>
+#include <SFML/Window.hpp>
+#include <SFML/System.hpp>
 #include "TextBuffer.h"
 
 class Cursor {
@@ -76,13 +78,13 @@ void Tests() {
 
 int main() {
     PieceTable pTable("Hello World");
-    sf::RenderWindow window(sf::VideoMode(640, 640), "Text Editor");
+    sf::RenderWindow window(sf::VideoMode({640u, 640u}), "Text Editor", sf::Style::Close | sf::Style::Resize);
     sf::Font font;
     sf::Font debugFont;
-    sf::Text text;
-    sf::Text debugText;
+    sf::Text text{font, ""};
+    sf::Text debugText{font, ""};
     Cursor* cursor = new Cursor();
-    font.loadFromFile("./Resources/FiraCode.ttf");
+    font.openFromFile("./Resources/FiraCode.ttf");
     text.setFont(font);
     debugText.setFont(font);
     text.setCharacterSize(24);
@@ -93,33 +95,31 @@ int main() {
     int character = pTable.length();
     while (window.isOpen())
     {
-        sf::Event event;
-        while (window.pollEvent(event))
+        while (auto event = window.pollEvent())
         {
-            if (event.type == sf::Event::Closed)
+            if (event->is<sf::Event::Closed>())
                 window.close();
-
-            if (event.type == sf::Event::TextEntered){
-                if (event.text.unicode < 128) {
+            else if (auto textEntered = event->getIf<sf::Event::TextEntered>()){
+                if (textEntered->unicode < 128) {
                     cursor->restartTimer();
-                    if (static_cast<char>(event.text.unicode) == '\b') {
+                    if (static_cast<char>(textEntered->unicode) == '\b') {
                         pTable.remove(character-1, character);
                         if (character > 0)
                             character--;
                     }
                     else {
-                        pTable.insert(character, std::string(1, static_cast<char>(event.text.unicode)));
+                        pTable.insert(character, std::string(1, static_cast<char>(textEntered->unicode)));
                         character++;
                     }
                 }
             }
-            if (event.type == sf::Event::KeyPressed) {
-                if (event.key.code == sf::Keyboard::Right && character < pTable.length()) {
+            else if (auto keyPressed = event->getIf<sf::Event::KeyPressed>()) {
+                if (keyPressed->scancode == sf::Keyboard::Scancode::Right && character < pTable.length()) {
                     cursor->restartTimer();
                     character++;
                     pTable.resetNodeSave();
                 }
-                else if (event.key.code == sf::Keyboard::Left && character > 0) {
+                else if (keyPressed->scancode == sf::Keyboard::Scancode::Left && character > 0) {
                     cursor->restartTimer();
                     character--;
                     pTable.resetNodeSave();
@@ -127,7 +127,7 @@ int main() {
             }
         }
         cursor->Update();
-        cursor->setPos(15 * character, 24 * (pTable.indexLine(character)-1));
+        cursor->setPos(15 * (pTable.lineIndex(character)), 30 * (pTable.indexLine(character)-1));
         debugText.setString("Length: " + std::to_string(pTable.length()) + ", Nodes: " + std::to_string(pTable.countNodes()) + ", Character: " +
             std::to_string(character) + ", Lines: " + std::to_string(pTable.lines()));
         text.setString(pTable.print());

@@ -43,6 +43,8 @@ public:
     int countNodes() const;
 
     int indexLine(int index) const;
+
+    int lineIndex(int index) const;
 };
 
 #endif
