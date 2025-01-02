@@ -27,10 +27,10 @@ PieceTable::PieceTable(const std::string& initialData) {
 
 std::string PieceTable::print() const {
     std::string output = "";
-    Node* currNode = mPieces;
-    while (currNode) {  // Goes through all nodes in order until the chain breaks
-        output += currNode->data;
-        currNode = currNode->next;
+    Node* currentNode = mPieces;
+    while (currentNode) {  // Goes through all nodes in order until the chain breaks
+        output += currentNode->data;
+        currentNode = currentNode->next;
     }
     return output;
 }
@@ -41,27 +41,27 @@ int PieceTable::insert(int startIndex, const std::string& data) {
     if (modifiedData == "\t") {
         int whiteSpace = 0; //Counts how much whitespace occurs before index @ line to have an even tab
         int line = getCurrentLine(startIndex);
-        Node* currNode = mPieces;
-        while (currNode) {
-            if (currNode->line == line){
-                if (startIndex <= currNode->startIndex + currNode->data.length()) {
-                    for (int i = 0; i < startIndex - currNode->startIndex; i++) 
-                        if (currNode->data[i] == ' ')
+        Node* currentNode = mPieces;
+        while (currentNode) {
+            if (currentNode->line == line){
+                if (startIndex <= currentNode->startIndex + currentNode->data.length()) {
+                    for (int i = 0; i < startIndex - currentNode->startIndex; i++) 
+                        if (currentNode->data[i] == ' ')
                             whiteSpace++;
                         else
                             whiteSpace = 0;
                     break;
                 }
                 else 
-                    for (int i = 0; i < currNode->data.length(); i++) 
-                        if (currNode->data[i] == ' ')
+                    for (int i = 0; i < currentNode->data.length(); i++) 
+                        if (currentNode->data[i] == ' ')
                             whiteSpace++;
                         else
                             whiteSpace = 0;
             }
-            else if(currNode-> line > line)
+            else if(currentNode-> line > line)
                 break;
-            currNode = currNode->next;
+            currentNode = currentNode->next;
         }
         modifiedData = std::string(4 - whiteSpace % 4, ' '); // Adds an even amount of whitespace.
     }
@@ -71,11 +71,11 @@ int PieceTable::insert(int startIndex, const std::string& data) {
         mLastNode->data += modifiedData;
         mLength += modifiedData.length();
         mLastIndex++;
-        Node* currNode = mLastNode->next;
+        Node* currentNode = mLastNode->next;
         // Update the starting indexes of each node afterwards.
-        while (currNode) {
-            currNode->startIndex += modifiedData.length();
-            currNode = currNode->next;
+        while (currentNode) {
+            currentNode->startIndex += modifiedData.length();
+            currentNode = currentNode->next;
         }
         return modifiedData.length();
     }
@@ -94,27 +94,27 @@ int PieceTable::remove(int startIndex, int endIndex) {
     if (endIndex - startIndex == 1) {
         int whiteSpace = 0; //Counts how much whitespace before character, if exactly 4 or divisible by 4, thats a tab
         int line = getCurrentLine(endIndex);
-        Node* currNode = mPieces;
-        while (currNode) {
-            if (currNode->line == line){
-                if (endIndex <= currNode->startIndex + currNode->data.length()) {
-                    for (int i = 0; i < endIndex - currNode->startIndex; i++) 
-                        if (currNode->data[i] == ' ')
+        Node* currentNode = mPieces;
+        while (currentNode) {
+            if (currentNode->line == line){
+                if (endIndex <= currentNode->startIndex + currentNode->data.length()) {
+                    for (int i = 0; i < endIndex - currentNode->startIndex; i++) 
+                        if (currentNode->data[i] == ' ')
                             whiteSpace++;
                         else
                             whiteSpace = 0;
                     break;
                 }
                 else 
-                    for (int i = 0; i < currNode->data.length(); i++) 
-                        if (currNode->data[i] == ' ')
+                    for (int i = 0; i < currentNode->data.length(); i++) 
+                        if (currentNode->data[i] == ' ')
                             whiteSpace++;
                         else
                             whiteSpace = 0;
             }
-            else if(currNode-> line > line)
+            else if(currentNode-> line > line)
                 break;
-            currNode = currNode->next;
+            currentNode = currentNode->next;
         }
         if (whiteSpace && whiteSpace % 4 == 0) {
             replace(startIndex-3, endIndex, "");
@@ -136,39 +136,39 @@ void PieceTable::resetNodeSave() {
 
 // Gets the current line the index is located at.
 int PieceTable::getCurrentLine(int index) const{
-    Node* currNode = mPieces;
-    while (currNode) {
-        if (index <= currNode->startIndex + currNode->data.length() || !currNode->next) 
-            return currNode->line;
-        currNode = currNode->next;
+    Node* currentNode = mPieces;
+    while (currentNode) {
+        if (index <= currentNode->startIndex + currentNode->data.length() || !currentNode->next) 
+            return currentNode->line;
+        currentNode = currentNode->next;
     }
     return 1;
 }
 
 // Gets the index relative to it's current line. Used for cursor location.
 int PieceTable::relativeLineIndex(int index) const {
-    Node* currNode = mPieces;
+    Node* currentNode = mPieces;
     int currentLine = 1;
     int characterDisposition = 0;
-    while (currNode) {
-        if (currentLine != currNode->line) {
-            characterDisposition = currNode->startIndex + 1;
-            currentLine = currNode->line;
+    while (currentNode) {
+        if (currentLine != currentNode->line) {
+            characterDisposition = currentNode->startIndex + 1;
+            currentLine = currentNode->line;
         }
-        if (index <= currNode->startIndex + currNode->data.length() || !currNode->next) 
+        if (index <= currentNode->startIndex + currentNode->data.length() || !currentNode->next) 
             return index - characterDisposition ;
-        currNode = currNode->next;
+        currentNode = currentNode->next;
     }
     return 0;
 }
 
 // Gets the current node the index is located at. For debugging purposes mainly.
 Node* PieceTable::getCurrentNode(int index) const {
-    Node* currNode = mPieces;
-    while (currNode) {
-        if (index <= currNode->startIndex + currNode->data.length() || !currNode->next) 
-            return currNode;
-        currNode = currNode->next;
+    Node* currentNode = mPieces;
+    while (currentNode) {
+        if (index <= currentNode->startIndex + currentNode->data.length() || !currentNode->next) 
+            return currentNode;
+        currentNode = currentNode->next;
     }
     return nullptr;
 }
@@ -178,29 +178,29 @@ int PieceTable::indexOnLine(int index, int line) const {
     // If tries going above first line, just go to beginning.
     if (line == 0)
         return 0;
-    Node* currNode = mPieces;
+    Node* currentNode = mPieces;
     int offset = 0;
     bool foundLine = false;
-    while (currNode) { 
-        if (currNode->line == line) {
+    while (currentNode) { 
+        if (currentNode->line == line) {
             // Once reaches first node of specified line, adds it's offset.
             if (!foundLine) {
-                offset += currNode->startIndex;
+                offset += currentNode->startIndex;
                 foundLine = true;
             }
             // Don't count new lines - ruins up and down arrow traversal
-            if (currNode->data.contains('\n'))
+            if (currentNode->data.contains('\n'))
                 offset++;
             // If found, return
-            if (index + offset <= currNode->startIndex + currNode->data.length())
+            if (index + offset <= currentNode->startIndex + currentNode->data.length())
                 return index + offset;
             // Otherwise, return last character of the line
-            else if (!currNode->next || currNode->next->line != line)
-                return currNode->startIndex + currNode->data.length();
+            else if (!currentNode->next || currentNode->next->line != line)
+                return currentNode->startIndex + currentNode->data.length();
         }
-        currNode = currNode->next;
+        currentNode = currentNode->next;
     }
-    return 0;
+    return mLength;
 }
 
 // Main text manipulation functionality
@@ -222,16 +222,16 @@ void PieceTable::replace(int startIndex, int endIndex, const std::string& data) 
 
 
     Node* prevNode = nullptr;
-    Node* currNode = mPieces;
+    Node* currentNode = mPieces;
 
     // Finds startIndex location
-    while (currNode && startIndex > currNode->startIndex + currNode->data.length()){
-        prevNode = currNode;
-        currNode = prevNode->next;
+    while (currentNode && startIndex > currentNode->startIndex + currentNode->data.length()){
+        prevNode = currentNode;
+        currentNode = prevNode->next;
     }
 
     // If located at the end, will just add a new node
-    if (!currNode) {
+    if (!currentNode) {
         if (!prevNode) 
             mPieces = new Node(data);
         else if (prevNode->data.empty()) // If last node is empty, attempt to replace it
@@ -245,14 +245,14 @@ void PieceTable::replace(int startIndex, int endIndex, const std::string& data) 
     }
 
     // If start index is located in the middle of the node, split that node into two.
-    if (startIndex < currNode->startIndex + currNode->data.length()) {
-        int offset = startIndex - currNode->startIndex;
-        int length = currNode->data.length();
+    if (startIndex < currentNode->startIndex + currentNode->data.length()) {
+        int offset = startIndex - currentNode->startIndex;
+        int length = currentNode->data.length();
         std::string prevData;
         if (offset > -length){
             int usedOffset = offset >= 0 ? offset : length + offset;
             if (usedOffset > length) usedOffset = length;
-            prevData = currNode->data.substr(0, usedOffset);
+            prevData = currentNode->data.substr(0, usedOffset);
         }
         else
             prevData = "";
@@ -260,38 +260,38 @@ void PieceTable::replace(int startIndex, int endIndex, const std::string& data) 
         if (offset < length){
             int usedOffset = offset >= 0 ? offset : length + offset;
             if (usedOffset < 0) usedOffset = 0;
-            nextData = currNode->data.substr(usedOffset);
+            nextData = currentNode->data.substr(usedOffset);
         }
         else
             nextData = "";
 
-        Node* newNode = new Node(nextData, currNode->next, currNode->startIndex + offset, currNode->line);
-        currNode->next = newNode;
-        currNode->data = prevData;
+        Node* newNode = new Node(nextData, currentNode->next, currentNode->startIndex + offset, currentNode->line);
+        currentNode->next = newNode;
+        currentNode->data = prevData;
     }
 
     // Records last node before manipulation as an anchor to attach new nodes to later
-    Node* anchorNode = currNode;
+    Node* anchorNode = currentNode;
     prevNode = anchorNode;
-    currNode = prevNode->next;
+    currentNode = prevNode->next;
 
     // Adds all nodes to be replaced to deletion pile
     std::vector<Node*> toDelete = {};
-    while (currNode && endIndex >= currNode->startIndex + currNode->data.length()) {
-        toDelete.push_back(currNode);
-        prevNode = currNode;
-        currNode = prevNode->next;
+    while (currentNode && endIndex >= currentNode->startIndex + currentNode->data.length()) {
+        toDelete.push_back(currentNode);
+        prevNode = currentNode;
+        currentNode = prevNode->next;
     }
 
     // If end index is in the middle of a node, split the node and add the first half to the deletion pile
-    if (currNode && endIndex < currNode->startIndex + currNode->data.length()) {
-        int offset = endIndex - currNode->startIndex;
-        int length = currNode->data.length();
+    if (currentNode && endIndex < currentNode->startIndex + currentNode->data.length()) {
+        int offset = endIndex - currentNode->startIndex;
+        int length = currentNode->data.length();
         std::string prevData;
         if (offset > -length){
             int usedOffset = offset >= 0 ? offset : length + offset;
             if (usedOffset > length) usedOffset = length;
-            prevData = currNode->data.substr(0, usedOffset);
+            prevData = currentNode->data.substr(0, usedOffset);
         }
         else
             prevData = "";
@@ -299,14 +299,14 @@ void PieceTable::replace(int startIndex, int endIndex, const std::string& data) 
         if (offset < length){
             int usedOffset = offset >= 0 ? offset : length + offset;
             if (usedOffset < 0) usedOffset = 0;
-            nextData = currNode->data.substr(usedOffset);
+            nextData = currentNode->data.substr(usedOffset);
         }
         else
             nextData = "";
-        Node* newNode = new Node(nextData, currNode->next, currNode->startIndex + offset, currNode->line);
-        currNode->next = newNode;
-        currNode->data = prevData;
-        toDelete.push_back(currNode);
+        Node* newNode = new Node(nextData, currentNode->next, currentNode->startIndex + offset, currentNode->line);
+        currentNode->next = newNode;
+        currentNode->data = prevData;
+        toDelete.push_back(currentNode);
     }
 
     // Creates first node after end index
@@ -371,10 +371,10 @@ int PieceTable::lines() const {
 // Counts number of nodes currently in piece table
 int PieceTable::countNodes() const {
     int output = 0;
-    Node* currNode = mPieces;
-    while (currNode) {
+    Node* currentNode = mPieces;
+    while (currentNode) {
         output += 1;
-        currNode = currNode->next;
+        currentNode = currentNode->next;
     }
     return output;
 }
@@ -382,4 +382,28 @@ int PieceTable::countNodes() const {
 // Returns main node for node analysis. Should only ever be accessible during debug.
 Node* PieceTable::mainNode() const {
     return mPieces;
+}
+
+//Test Cases
+void Tests() {
+    PieceTable Table("hey world");
+    std::cout << Table.print() << '\n';
+    Table.replace(5, 7, "!!!");
+    std::cout << Table.print() << '\n';
+    Table.remove(5, 8);
+    std::cout << Table.print() << '\n';
+    Table.insert(5, "or");
+    std::cout << Table.print() << '\n';
+    Table.remove(2, 6);
+    std::cout << Table.print() << '\n';
+    Table.insert(0, "A new word: ");
+    std::cout << Table.print() << '\n';
+    Table.insert(15, "a");
+    std::cout << Table.print() << '\n';
+    Table.remove(0, 0);
+    std::cout << Table.print() << '\n';
+    Table.replace(1, 5, "n existing");
+    std::cout << Table.print() << '\n';
+    std::cout << "The length of this string is " << Table.length() << " and the amount of nodes is " << Table.countNodes() << '\n';
+
 }

@@ -4,7 +4,7 @@ find_package(SFML 3 COMPONENTS Graphics REQUIRED)
 set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 
-add_executable(TextEditor main.cpp textBuffer.cpp cursor.cpp)
+add_executable(TextEditor main.cpp textBuffer.cpp editorUI.cpp)
 
 target_compile_features(TextEditor PUBLIC cxx_std_23)
 target_compile_options(TextEditor PUBLIC -fcolor-diagnostics -fansi-escape-codes -g)

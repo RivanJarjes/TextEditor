@@ -1,82 +1,70 @@
 #include <iostream>
 #include <SFML/Graphics.hpp>
 #include "textBuffer.h"
-#include "cursor.h"
+#include "editorUI.h"
 
 
-void Tests() {
-    PieceTable Table("hey world");
-    std::cout << Table.print() << '\n';
-    Table.replace(5, 7, "!!!");
-    std::cout << Table.print() << '\n';
-    Table.remove(5, 8);
-    std::cout << Table.print() << '\n';
-    Table.insert(5, "or");
-    std::cout << Table.print() << '\n';
-    Table.remove(2, 6);
-    std::cout << Table.print() << '\n';
-    Table.insert(0, "A new word: ");
-    std::cout << Table.print() << '\n';
-    Table.insert(15, "a");
-    std::cout << Table.print() << '\n';
-    Table.remove(0, 0);
-    std::cout << Table.print() << '\n';
-    Table.replace(1, 5, "n existing");
-    std::cout << Table.print() << '\n';
-    std::cout << "The length of this string is " << Table.length() << " and the amount of nodes is " << Table.countNodes() << '\n';
-
-}
 
 int main() {
+    // Window
+    sf::RenderWindow window(sf::VideoMode({640u, 640u}), "Text Editor", 
+        sf::Style::Close | sf::Style::Resize);
+
+    // Main Piece Table and character variables
     PieceTable pTable("Hello World");
-    sf::RenderWindow window(sf::VideoMode({640u, 640u}), "Text Editor", sf::Style::Close | sf::Style::Resize);
-    sf::Font font;
-    font.openFromFile("./Resources/FiraCode.ttf");
-    sf::Text text{font, ""};
-    sf::Text debugText{font, ""};
-    sf::Text gutterText{font, ""};
-    Cursor* cursor = new Cursor();
-    text.setCharacterSize(24);
-    gutterText.setCharacterSize(24);
-    gutterText.setFillColor(sf::Color(80,80,80));
-    debugText.setCharacterSize(16);
-    text.setFillColor(sf::Color::White);
-    debugText.setFillColor(sf::Color::White);
-    debugText.setPosition(sf::Vector2f(0.f, 510.f));
     int character = pTable.length();
-    Node* RefNode = pTable.mainNode();
+    int lastRelativeLineIndex = (pTable.relativeLineIndex(character));
+
+    // Sizes
     int characterWidth = 15;
     int charatcerHeight = 30;
     int lineGutterCharacters = 4;
     int lineGutterWidth = characterWidth * lineGutterCharacters;
     int lineGutterOffset = 7;
+    int mainTextOffset = lineGutterWidth + 2 * lineGutterOffset;
+
+    // Line Gutter
     sf::RectangleShape lineGutter(sf::Vector2f(lineGutterWidth + lineGutterOffset, window.getSize().y));
     lineGutter.setFillColor(sf::Color(21,21,21));
-    int lastrelativeLineIndex = (pTable.relativeLineIndex(character));
-    int mainTextOffset = lineGutterWidth + 2 * lineGutterOffset;
-    cursor->setPos(mainTextOffset + characterWidth * (pTable.relativeLineIndex(character)), charatcerHeight * (pTable.getCurrentLine(character)-1));
-    text.setPosition(sf::Vector2f(mainTextOffset, 0));
-    bool highlightingText = false;
 
+    // Text
+    sf::Font font;
+    font.openFromFile("./Resources/FiraCode.ttf");
+    sf::Text text{font, ""};
+    sf::Text gutterText{font, ""};
+    text.setCharacterSize(24);
+    gutterText.setCharacterSize(24);
+    text.setFillColor(sf::Color::White);
+    gutterText.setFillColor(sf::Color(80,80,80));
+    text.setPosition(sf::Vector2f(mainTextOffset, 0));
+    gutterText.setPosition(sf::Vector2f(0, 0));
+
+    // Objects
+    Cursor* cursor = new Cursor();
+    cursor->setPos(mainTextOffset + characterWidth * (pTable.relativeLineIndex(character)), 
+        charatcerHeight * (pTable.getCurrentLine(character)-1));
+    Debug debug(font, sf::Vector2f(0.f, 510.f), &pTable);
+
+    // Functions
     auto gutterTextUpdate = [&] () {
         std::string gutterString;
         for (int i = 0; i < pTable.lines(); i++) {
             std::string nextString = std::to_string(i+1);
-            gutterString += (std::string(nextString.length() < lineGutterCharacters ? lineGutterCharacters - nextString.length() : 0, ' '))
-                + nextString + '\n';
+            gutterString += (std::string(nextString.length() < lineGutterCharacters ? 
+                lineGutterCharacters - nextString.length() : 0, ' ')) + nextString + '\n';
         }
         gutterText.setString(gutterString);
     };
     gutterTextUpdate();
-    while (window.isOpen())
-    {
-        while (auto event = window.pollEvent())
-        {
+    
+    // Window Update Event
+    while (window.isOpen()) {
+        while (auto event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>())
                 window.close();
-            else if (auto textEntered = event->getIf<sf::Event::TextEntered>()){
+            else if (auto* textEntered = event->getIf<sf::Event::TextEntered>()){
                 if (textEntered->unicode < 128) {
-                    RefNode = pTable.mainNode();
+                    debug.resetDebugNode();
                     cursor->restartTimer();
                     if (static_cast<char>(textEntered->unicode) == '\b') {
                         character -= pTable.remove(character-1, character);
@@ -84,73 +72,81 @@ int main() {
                             character = 0;
                     }
                     else 
-                        character += pTable.insert(character, std::string(1, static_cast<char>(textEntered->unicode)));
-                    cursor->setPos(mainTextOffset + characterWidth * (pTable.relativeLineIndex(character)), charatcerHeight * (pTable.getCurrentLine(character)-1));
-                    lastrelativeLineIndex = (pTable.relativeLineIndex(character));
+                        character += pTable.insert(character, 
+                            std::string(1, static_cast<char>(textEntered->unicode)));
+                    cursor->setPos(mainTextOffset + characterWidth * (pTable.relativeLineIndex(character)), 
+                        charatcerHeight * (pTable.getCurrentLine(character)-1));
+                    lastRelativeLineIndex = (pTable.relativeLineIndex(character));
                     gutterTextUpdate();
                 }
             }
-            else if (auto keyPressed = event->getIf<sf::Event::KeyPressed>()) {
-                if (keyPressed->scancode == sf::Keyboard::Scancode::Right && character < pTable.length()) {
+            else if (auto* keyPressed = event->getIf<sf::Event::KeyPressed>()) {
+                auto moveCursor = [&](int newIndex) {
                     cursor->restartTimer();
-                    character++;
-                    lastrelativeLineIndex = (pTable.relativeLineIndex(character));
+                    character = newIndex;
+                    lastRelativeLineIndex = pTable.relativeLineIndex(character);
                     pTable.resetNodeSave();
+                };
+                switch (keyPressed->scancode) {
+                    case sf::Keyboard::Scancode::Right:
+                        if (character < pTable.length()) 
+                            moveCursor(character + 1);
+                        break;
+                    case sf::Keyboard::Scancode::Left:
+                        if (character > 0)
+                            moveCursor(character - 1);
+                        break;
+                    case sf::Keyboard::Scancode::Up:
+                        moveCursor(pTable.indexOnLine(lastRelativeLineIndex,
+                            pTable.getCurrentLine(character) - 1));
+                        break;
+                    case sf::Keyboard::Scancode::Down:
+                        moveCursor(pTable.indexOnLine(lastRelativeLineIndex, 
+                            pTable.getCurrentLine(character) + 1));
+                        break;
+                    case sf::Keyboard::Scancode::Escape:
+                        pTable = PieceTable("");
+                        moveCursor(0);
+                        gutterTextUpdate();
+                        break;
+                    default:
+                        break;
                 }
-                else if (keyPressed->scancode == sf::Keyboard::Scancode::Left && character > 0) {
-                    cursor->restartTimer();
-                    character--;
-                    lastrelativeLineIndex = (pTable.relativeLineIndex(character));
-                    pTable.resetNodeSave();
-                }
-                else if (keyPressed->scancode == sf::Keyboard::Scancode::Up) {
-                    cursor->restartTimer();
-                    character = pTable.indexOnLine(lastrelativeLineIndex, pTable.getCurrentLine(character)-1);
-                    pTable.resetNodeSave();
-                }
-                else if (keyPressed->scancode == sf::Keyboard::Scancode::Down) {
-                    cursor->restartTimer();
-                    character = pTable.indexOnLine(lastrelativeLineIndex, pTable.getCurrentLine(character)+1);
-                    pTable.resetNodeSave();
-                }
-                //Debug
-                else if (keyPressed->scancode == sf::Keyboard::Scancode::PageUp && RefNode->next) {
-                    RefNode = RefNode->next;
-                }
-                else if (keyPressed->scancode == sf::Keyboard::Scancode::PageDown) {
-                    RefNode = pTable.mainNode();
-                }
-                else if (keyPressed->scancode == sf::Keyboard::Scancode::Escape) {
-                    pTable = PieceTable("");
-                    character = 0;
-                    lastrelativeLineIndex = 0;
-                    RefNode = pTable.mainNode();
-                    gutterTextUpdate();
-                }
-                cursor->setPos(mainTextOffset + characterWidth * (pTable.relativeLineIndex(character)), charatcerHeight * (pTable.getCurrentLine(character)-1));
+                cursor->setPos(mainTextOffset + characterWidth * (pTable.relativeLineIndex(character)), 
+                    charatcerHeight * (pTable.getCurrentLine(character)-1));
             }
+            else if (auto* mouseButtonPressed = event->getIf<sf::Event::MouseButtonPressed>()) {
+                if (sf::Mouse::getPosition(window).x > (lineGutterWidth + lineGutterOffset) && 
+                    sf::Mouse::getPosition(window).x <=  window.getSize().x &&
+                    sf::Mouse::getPosition(window).y > 0 && 
+                    sf::Mouse::getPosition(window).x <=  window.getSize().y) {
+                    
+                }
+            }
+            // Update input objects
+            debug.update(event, character, lastRelativeLineIndex);
         }
-        if (sf::Mouse::getPosition(window).x > (lineGutterWidth + lineGutterOffset) && sf::Mouse::getPosition(window).x <=  window.getSize().x &&
-            sf::Mouse::getPosition(window).y > 0 && sf::Mouse::getPosition(window).x <=  window.getSize().y)
+
+        // Cursor manipulation
+        if (sf::Mouse::getPosition(window).x > (lineGutterWidth + lineGutterOffset) && 
+            sf::Mouse::getPosition(window).x <=  window.getSize().x &&
+            sf::Mouse::getPosition(window).y > 0 && 
+            sf::Mouse::getPosition(window).x <=  window.getSize().y)
             window.setMouseCursor(sf::Cursor::createFromSystem(sf::Cursor::Type::Text).value());
         else 
             window.setMouseCursor(sf::Cursor::createFromSystem(sf::Cursor::Type::Arrow).value());
 
-        cursor->Update();
-        std::string DebugNodeText = RefNode->data;
-        std::replace(DebugNodeText.begin(), DebugNodeText.end(), '\n', '>');
-        debugText.setString("Length: " + std::to_string(pTable.length()) + ", Nodes: " + std::to_string(pTable.countNodes()) + ", Character: " +
-            std::to_string(character) + ", Lines: " + std::to_string(pTable.lines()) + "\nCurrent Index's Node: " + std::to_string(pTable.getCurrentNode(character)->nodeID)
-            + ", Node Line: " + std::to_string(pTable.getCurrentNode(character)->line) + "\nSelected Node: " + std::to_string(RefNode->nodeID) + ", Sel. Node's Line: " + std::to_string(RefNode->line) + 
-            "\nSel. Node's Data: " + DebugNodeText + "\nSel. Node's StartIndex: " + std::to_string(RefNode->startIndex) +
-            ", Index on Line: " + std::to_string(pTable.relativeLineIndex(character)) + ", Index's line: " + std::to_string(pTable.getCurrentLine(character)) + "\nLast Line Index: " + std::to_string(lastrelativeLineIndex));
+        // Update Objects
+        cursor->update();
         text.setString(pTable.print());
+
+        // Drawing
         window.clear();
         window.draw(lineGutter);
         window.draw(gutterText);
-        cursor->Draw(&window);
+        cursor->draw(&window);
+        debug.draw(&window);
         window.draw(text);
-        window.draw(debugText);
         window.display();
     }
     delete cursor;
