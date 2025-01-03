@@ -1,4 +1,3 @@
-#include <iostream>
 #include <SFML/Graphics.hpp>
 #include "editorUI.h"
 #include "textBuffer.h"
@@ -22,11 +21,13 @@ sf::Vector2<float> Cursor::getPos() const {
 }
 
 void Cursor::setPos(sf::Vector2<float> pos) {
+    restartTimer();
     mPos = pos;
     mShape.setPosition((mPos + mOffset));
 }
 
 void Cursor::setPos(float x, float y) {
+    restartTimer();
     mPos = sf::Vector2<float>(x, y);
     mShape.setPosition((mPos + mOffset));
 }
@@ -59,7 +60,8 @@ void Debug::resetDebugNode() {
     currentNode = orginNode;
 }
 
-void Debug::update(std::optional<sf::Event> event, int character, int lastRelativeLineIndex) {
+void Debug::update(std::optional<sf::Event> event, int character, int lastRelativeLineIndex, int selectionIndex,
+        bool mouseLeftHeld, bool cmdHeld, bool shiftHeld, bool optHeld) {
     if (auto keyPressed = event->template getIf<sf::Event::KeyPressed>()) {
         if (keyPressed->scancode == sf::Keyboard::Scancode::PageUp && currentNode->next) {
             currentNode = currentNode->next;
@@ -86,7 +88,14 @@ void Debug::update(std::optional<sf::Event> event, int character, int lastRelati
         std::to_string(pieceTable->relativeLineIndex(character)) +
         ", Index's line: " +
         std::to_string(pieceTable->getCurrentLine(character)) +
-        "\nLast Line Index: " + std::to_string(lastRelativeLineIndex));
+        "\nLast Line Index: " + std::to_string(lastRelativeLineIndex) +
+        ", Selection Index: " + std::to_string(selectionIndex) +
+        (mouseLeftHeld ? " LMB HELD " : "") + (cmdHeld ? " CMD HELD " : "") + 
+        (shiftHeld ? " SHIFT HELD " : "") + (optHeld ? " OPTION HELD " : ""));
+}
+
+void Debug::setPosition(sf::Vector2f position) {
+    debugText.setPosition(position);
 }
 
 void Debug::draw(sf::RenderWindow* window) {

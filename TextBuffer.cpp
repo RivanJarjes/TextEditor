@@ -35,6 +35,31 @@ std::string PieceTable::print() const {
     return output;
 }
 
+std::string PieceTable::printSelection(int startIndex, int endIndex) const {
+    std::string output = "";
+    bool startReached = false;
+    Node* currentNode = mPieces;
+    while (currentNode) {  // Goes through all nodes in order until the chain breaks
+        if (!startReached && startIndex <= currentNode->startIndex + currentNode->data.length()){
+            if (endIndex <= currentNode->startIndex + currentNode->data.length()) {
+                output += currentNode->data.substr(startIndex - currentNode->startIndex, 
+                    endIndex - startIndex);
+                break;
+            }
+            startReached = true;
+            output += currentNode->data.substr(startIndex - currentNode->startIndex, 
+                currentNode->data.length() - (startIndex - currentNode->startIndex));
+        } else if (startReached && endIndex <= currentNode->startIndex + currentNode->data.length()) {
+            output += currentNode->data.substr(0, (endIndex - currentNode->startIndex));
+            break;
+        } else if (startReached) 
+            output += currentNode->data;
+
+        currentNode = currentNode->next;
+    }
+    return output;
+}
+
 int PieceTable::insert(int startIndex, const std::string& data) {
     //If tab, replace it with three spaces for simplicity sake
     std::string modifiedData = data;
@@ -178,6 +203,8 @@ int PieceTable::indexOnLine(int index, int line) const {
     // If tries going above first line, just go to beginning.
     if (line == 0)
         return 0;
+    if (line > mLines)
+        return mLength;
     Node* currentNode = mPieces;
     int offset = 0;
     bool foundLine = false;
@@ -204,10 +231,10 @@ int PieceTable::indexOnLine(int index, int line) const {
 }
 
 // Main text manipulation functionality
-void PieceTable::replace(int startIndex, int endIndex, const std::string& data) {
+int PieceTable::replace(int startIndex, int endIndex, const std::string& data) {
     if (startIndex < 0 || endIndex > mLength || startIndex > endIndex) {
        std::cerr << ("Invalid start or end index");
-       return;
+       return 0;
     }
 
     // Counts how many linebreaks there are to calculate new lines
@@ -215,6 +242,31 @@ void PieceTable::replace(int startIndex, int endIndex, const std::string& data) 
     for (int i = 0; i < data.length(); i++) {
         if (data[i] == '\n')
             LineBreaks++;
+    }
+
+    if (LineBreaks > 1) {
+        int change = 0;
+        int start = 0;
+        int lastEndIndex = -1;
+        while (true) {
+            int pos = data.find('\n', start + 1);
+            if (pos == std::string::npos) {
+                change += replace(lastEndIndex, lastEndIndex, 
+                    data.substr(start));
+                break;
+            }
+            if (lastEndIndex == -1) {
+                change += replace(startIndex, endIndex, data.substr(start, (pos - start)));
+                lastEndIndex = startIndex + (pos - start);
+            }
+            else {
+                change += replace(lastEndIndex, lastEndIndex, 
+                    data.substr(start, (pos - start)));
+                lastEndIndex += (pos - start);
+            }
+            start = pos;
+        }
+        return change;
     }
 
     // Modify length, adds new text and removes displaced text
@@ -241,7 +293,7 @@ void PieceTable::replace(int startIndex, int endIndex, const std::string& data) 
             prevNode->next = new Node(data, nullptr, prevNode->startIndex + data.length(),
                 prevNode->line + LineBreaks);
         mLines += LineBreaks;
-        return;
+        return data.length() - (endIndex - startIndex);
     }
 
     // If start index is located in the middle of the node, split that node into two.
@@ -318,13 +370,18 @@ void PieceTable::replace(int startIndex, int endIndex, const std::string& data) 
     anchorNode->next = nullptr;
 
     // Deletes all nodes in pile
+    int carry = 0;
     while (!toDelete.empty()) {
         Node* nodeToDelete = toDelete.back();
         toDelete.pop_back();
         if (nodeToDelete) {
             for (int i = 0; i < nodeToDelete->data.length(); i++) {
-                if (nodeToDelete->data[i] == '\n')
-                    LineBreaks--; // If deleting line breaks, alter the line count
+                bool foundLineBreak = false;
+                if (nodeToDelete->data[i] == '\n'){
+                    if (LineBreaks > 0 && carry == 0)
+                        carry = 1;
+                    LineBreaks--; 
+                }// If deleting line breaks, alter the line count
             }
             delete nodeToDelete;
             nodeToDelete = nullptr; // Dereferences to avoid memory leak
@@ -337,7 +394,7 @@ void PieceTable::replace(int startIndex, int endIndex, const std::string& data) 
     Node* newDataNode;
     if (!data.empty()) {
         newDataNode = new Node(data, firstRightNode,anchorNode->startIndex + anchorNode->data.length(),
-            anchorNode->line + LineBreaks);
+            anchorNode->line + LineBreaks + carry);
         mLastNode = newDataNode;
         mLastIndex = startIndex;
     }
@@ -358,6 +415,8 @@ void PieceTable::replace(int startIndex, int endIndex, const std::string& data) 
             nextNode = prevNode->next;
         }
     }
+
+    return data.length() - (endIndex - startIndex);
 }
 
 int PieceTable::length() const {
@@ -405,5 +464,38 @@ void Tests() {
     Table.replace(1, 5, "n existing");
     std::cout << Table.print() << '\n';
     std::cout << "The length of this string is " << Table.length() << " and the amount of nodes is " << Table.countNodes() << '\n';
+}
 
+std::vector<std::array<int, 3>> PieceTable::getSelectionBoxes(int startIndex, int endIndex) {
+    std::vector<std::array<int, 3>> output;
+    int currentOffset = 0;
+    int lastIndex = -1;
+    Node* currNode = mPieces;
+    auto pushLine = [&](int end) {
+        output.push_back({lastIndex - (currNode->line > 1 && lastIndex > 0 ? 1 : 0), 
+            end - (currNode->line > 1 ? 1 : 0), currNode->line});
+    };
+
+    while (currNode) {
+        if (lastIndex == -1 && startIndex <= currNode->startIndex + currNode->data.length()) 
+            lastIndex = startIndex - currentOffset;
+
+        if (endIndex <= currNode->startIndex + currNode->data.length()) {
+            pushLine(endIndex - currentOffset);
+            lastIndex = -1;
+            break;
+        }
+        if (!currNode->next)
+            pushLine(static_cast<int>(currNode->data.length()) + currNode->startIndex - currentOffset);
+
+        if (currNode->next && currNode->next->line != currNode->line) {
+            if (lastIndex != -1) {
+                pushLine(static_cast<int>(currNode->data.length()) + currNode->startIndex - currentOffset + 1);
+                lastIndex = 0;
+            }
+            currentOffset = currNode->next->startIndex;
+        }
+        currNode = currNode->next;
+    }
+    return output;
 }

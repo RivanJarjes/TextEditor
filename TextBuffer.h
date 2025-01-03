@@ -27,11 +27,13 @@ public:
 
     std::string print() const;
 
+    std::string printSelection(int startIndex, int endIndex) const;
+
     int insert(int startIndex, const std::string& data);
 
     int remove(int startIndex, int endIndex);
 
-    void replace(int startIndex, int endIndex, const std::string& data);
+    int replace(int startIndex, int endIndex, const std::string& data);
 
     void resetNodeSave();
 
@@ -44,6 +46,8 @@ public:
     int relativeLineIndex(int index) const;
 
     int indexOnLine(int index, int line) const;
+
+    std::vector<std::array<int, 3>> getSelectionBoxes(int startIndex, int endIndex);
 
     //DEBUG
     int countNodes() const;

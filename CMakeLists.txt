@@ -3,12 +3,15 @@ project(TextEditor)
 find_package(SFML 3 COMPONENTS Graphics REQUIRED)
 set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
+set(CLIP_EXAMPLES OFF CACHE BOOL "Compile clip examples")
+set(CLIP_TESTS OFF CACHE BOOL "Compile clip tests")
 
 add_executable(TextEditor main.cpp textBuffer.cpp editorUI.cpp)
 
+add_subdirectory(clip)
 target_compile_features(TextEditor PUBLIC cxx_std_23)
 target_compile_options(TextEditor PUBLIC -fcolor-diagnostics -fansi-escape-codes -g)
-target_link_libraries(TextEditor PRIVATE SFML::System SFML::Window SFML::Graphics)
+target_link_libraries(TextEditor PRIVATE SFML::System SFML::Window SFML::Graphics clip)
 target_include_directories(TextEditor PRIVATE ${workspaceFolder}/Resources)
 
 set(FONT_FILE "${CMAKE_SOURCE_DIR}/Resources/FiraCode.ttf")

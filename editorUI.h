@@ -1,7 +1,6 @@
 #ifndef EDITORUI_H
 #define EDITORUI_H
 
-#include <iostream>
 #include <SFML/Graphics.hpp>
 #include "textBuffer.h"
 
@@ -41,7 +40,11 @@ public:
 
     void resetDebugNode();
 
-    void update(std::optional<sf::Event> event, int character, int lastRelativeLineIndex);
+    void update(std::optional<sf::Event> event, int character, 
+        int lastRelativeLineIndex, int selectionIndex, 
+        bool mouseLeftHeld, bool cmdHeld, bool shiftHeld, bool optHeld);
+
+    void setPosition(sf::Vector2f position);
 
     void draw(sf::RenderWindow* window);
 };
