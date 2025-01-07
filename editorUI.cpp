@@ -52,12 +52,11 @@ Debug::Debug(sf::Font& font, sf::Vector2f position, PieceTable* pieceTable): deb
     debugText.setPosition(position);
     debugText.setFillColor(sf::Color::White);
     this->pieceTable = pieceTable;
-    orginNode = this->pieceTable->mainNode();
-    currentNode = orginNode;
+    currentNode = pieceTable->mainNode();
 }
 
 void Debug::resetDebugNode() {
-    currentNode = orginNode;
+    currentNode = pieceTable->mainNode();
 }
 
 void Debug::update(std::optional<sf::Event> event, int character, int lastRelativeLineIndex, int selectionIndex,
@@ -67,7 +66,7 @@ void Debug::update(std::optional<sf::Event> event, int character, int lastRelati
             currentNode = currentNode->next;
         }
         else if (keyPressed->scancode == sf::Keyboard::Scancode::PageDown) {
-            currentNode = orginNode;
+            currentNode = pieceTable->mainNode();
         }
     }
     std::string debugNodeText = currentNode->data;

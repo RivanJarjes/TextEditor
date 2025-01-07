@@ -82,11 +82,14 @@ int main() {
                 if (textEntered->unicode < 128) {
                     debug.resetDebugNode();
                     if (static_cast<char>(textEntered->unicode) == '\b') {
-                        characterIndex -= pTable.remove(std::min(characterIndex, selectionIndex)-1, 
-                        std::max(characterIndex, selectionIndex));
-                        if (characterIndex < 0)
-                            characterIndex = 0;
-                        selectionIndex = characterIndex;
+                        int minValue = std::min(characterIndex, selectionIndex);
+                        int maxValue = std::max(characterIndex, selectionIndex);
+                        if (minValue == maxValue)
+                            minValue--;
+                        int change = pTable.remove(minValue, maxValue);
+                        characterIndex = selectionIndex = std::max(characterIndex, selectionIndex) + change;
+                        if (characterIndex < 0 || selectionIndex < 0)
+                            characterIndex = selectionIndex = 0;
                     }
                     else {
 
@@ -99,7 +102,12 @@ int main() {
                             std::max(characterIndex, selectionIndex),
                             std::string(1, static_cast<char>(textEntered->unicode)));
                         }
-                        selectionIndex = characterIndex += change;
+                        std::cout << change << "vs" << characterIndex << '\n';
+                        selectionIndex = characterIndex = std::max(characterIndex, selectionIndex) + change;
+                        if (characterIndex < 0)
+                            selectionIndex = characterIndex = 0;
+                        else if (characterIndex > pTable.length())
+                            selectionIndex = characterIndex = pTable.length();
                     }
                     cursor->setPos(mainTextOffset + characterWidth * (pTable.relativeLineIndex(characterIndex)), 
                         characterHeight * (pTable.getCurrentLine(characterIndex)-1));
@@ -212,6 +220,15 @@ int main() {
                             gutterTextUpdate();
                         }
                         break;
+                    case sf::Keyboard::Scancode::A:
+                        if (cmdHeld) {
+                            selectionIndex = 0;
+                            characterIndex = pTable.length();
+                            cursor->setPos(mainTextOffset + characterWidth * (pTable.relativeLineIndex(characterIndex)), 
+                                characterHeight * (pTable.getCurrentLine(characterIndex)-1));
+                            selectionChanged = true;
+                        }
+                        break;
                     default:
                         break;
                 }
@@ -307,13 +324,12 @@ int main() {
                 std::min(selectionIndex, characterIndex), std::max(selectionIndex, characterIndex));
             selectionBoxes.clear();
             for (std::array<int, 3>& i : selectionPositions) {
+                if (i[0] < 0 || i[1] < 0 || i[2] < 0)
+                    continue;
                 sf::RectangleShape selectionBox;
-                std::cout << i[0] << ", " << i[1] << ", " << i[2] << '\n';
                 selectionBox.setSize(sf::Vector2f((i[1]-i[0]) * characterWidth, characterHeight));
                 selectionBox.setPosition(sf::Vector2f(i[0] * characterWidth + mainTextOffset, characterHeight * (i[2]-1)));
                 selectionBox.setFillColor(sf::Color(40, 67, 107));
-                std::cout << selectionBox.getPosition().x << ", " << selectionBox.getPosition().y << ", " << 
-                    selectionBox.getSize().x << ", " << selectionBox.getSize().y << '\n';
                 selectionBoxes.push_back(selectionBox);
             }
             selectionChanged = false;

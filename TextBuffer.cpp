@@ -149,7 +149,7 @@ int PieceTable::remove(int startIndex, int endIndex) {
     // Calls replace function without any data
     replace(startIndex, endIndex, "");
 
-    return endIndex - startIndex;
+    return -(endIndex - startIndex);
 }
 
 // To be called when cursor moves to reset last saved node, thus will make a new node next insertion
@@ -233,35 +233,44 @@ int PieceTable::indexOnLine(int index, int line) const {
 // Main text manipulation functionality
 int PieceTable::replace(int startIndex, int endIndex, const std::string& data) {
     if (startIndex < 0 || endIndex > mLength || startIndex > endIndex) {
-       std::cerr << ("Invalid start or end index");
        return 0;
     }
 
-    // Counts how many linebreaks there are to calculate new lines
+    // Counts how many linebreaks there are to calculate new lines, as well as changes tabs to 4 spaces
     int LineBreaks = 0;
-    for (int i = 0; i < data.length(); i++) {
-        if (data[i] == '\n')
+    std::string modifiedData;
+
+    for (char c : data) {
+        if (c == '\n') {
             LineBreaks++;
+            modifiedData.push_back('\n');
+        }
+        else if (c == '\t') {
+            modifiedData += "    ";
+        }
+        else {
+            modifiedData.push_back(c);
+        }
     }
 
-    if (LineBreaks > 1) {
+    if ((LineBreaks == 1 && modifiedData[0] != '\n') || LineBreaks > 1) {
         int change = 0;
         int start = 0;
         int lastEndIndex = -1;
         while (true) {
-            int pos = data.find('\n', start + 1);
+            int pos = modifiedData.find('\n', start + 1);
             if (pos == std::string::npos) {
                 change += replace(lastEndIndex, lastEndIndex, 
-                    data.substr(start));
+                    modifiedData.substr(start));
                 break;
             }
             if (lastEndIndex == -1) {
-                change += replace(startIndex, endIndex, data.substr(start, (pos - start)));
+                change += replace(startIndex, endIndex, modifiedData.substr(start, (pos - start)));
                 lastEndIndex = startIndex + (pos - start);
             }
             else {
                 change += replace(lastEndIndex, lastEndIndex, 
-                    data.substr(start, (pos - start)));
+                    modifiedData.substr(start, (pos - start)));
                 lastEndIndex += (pos - start);
             }
             start = pos;
@@ -270,7 +279,8 @@ int PieceTable::replace(int startIndex, int endIndex, const std::string& data) {
     }
 
     // Modify length, adds new text and removes displaced text
-    mLength += data.length() - (endIndex - startIndex);
+    int change =  modifiedData.length() - (endIndex - startIndex);
+    mLength += change;
 
 
     Node* prevNode = nullptr;
@@ -285,12 +295,12 @@ int PieceTable::replace(int startIndex, int endIndex, const std::string& data) {
     // If located at the end, will just add a new node
     if (!currentNode) {
         if (!prevNode) 
-            mPieces = new Node(data);
+            mPieces = new Node(modifiedData);
         else if (prevNode->data.empty()) // If last node is empty, attempt to replace it
-            prevNode = new Node(data, nullptr, prevNode->startIndex + data.length(),
+            prevNode = new Node(modifiedData, nullptr, prevNode->startIndex + modifiedData.length(),
                 prevNode->line + LineBreaks);
         else
-            prevNode->next = new Node(data, nullptr, prevNode->startIndex + data.length(),
+            prevNode->next = new Node(modifiedData, nullptr, prevNode->startIndex + modifiedData.length(),
                 prevNode->line + LineBreaks);
         mLines += LineBreaks;
         return data.length() - (endIndex - startIndex);
@@ -371,6 +381,7 @@ int PieceTable::replace(int startIndex, int endIndex, const std::string& data) {
 
     // Deletes all nodes in pile
     int carry = 0;
+    int originalLinebreaks = LineBreaks;
     while (!toDelete.empty()) {
         Node* nodeToDelete = toDelete.back();
         toDelete.pop_back();
@@ -378,8 +389,8 @@ int PieceTable::replace(int startIndex, int endIndex, const std::string& data) {
             for (int i = 0; i < nodeToDelete->data.length(); i++) {
                 bool foundLineBreak = false;
                 if (nodeToDelete->data[i] == '\n'){
-                    if (LineBreaks > 0 && carry == 0)
-                        carry = 1;
+                    if (originalLinebreaks > 0)
+                        carry++;
                     LineBreaks--; 
                 }// If deleting line breaks, alter the line count
             }
@@ -392,9 +403,12 @@ int PieceTable::replace(int startIndex, int endIndex, const std::string& data) {
 
     // Creates node to either store the new data or just becomes the first node on the right if no data
     Node* newDataNode;
-    if (!data.empty()) {
-        newDataNode = new Node(data, firstRightNode,anchorNode->startIndex + anchorNode->data.length(),
-            anchorNode->line + LineBreaks + carry);
+    if (!modifiedData.empty()) {
+        int line = anchorNode->line + LineBreaks + carry;
+        if (line < anchorNode->line)
+            line = anchorNode->line;
+        newDataNode = new Node(modifiedData, firstRightNode,anchorNode->startIndex + anchorNode->data.length(),
+            line);
         mLastNode = newDataNode;
         mLastIndex = startIndex;
     }
@@ -409,7 +423,10 @@ int PieceTable::replace(int startIndex, int endIndex, const std::string& data) {
         prevNode = newDataNode;
         Node* nextNode = firstRightNode;
         while (nextNode) {
-            nextNode->startIndex = prevNode->startIndex + prevNode->data.length();
+            if (modifiedData.empty())
+                nextNode->startIndex += change;
+            else
+                nextNode->startIndex = prevNode->startIndex + prevNode->data.length();
             nextNode->line += LineBreaks;
             prevNode = nextNode;
             nextNode = prevNode->next;

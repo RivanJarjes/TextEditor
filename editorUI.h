@@ -32,7 +32,6 @@ class Debug {
 private:
     sf::Text debugText;
     PieceTable* pieceTable;
-    Node* orginNode;
     Node* currentNode;
     int const debugTextSize = 16;
 public:
