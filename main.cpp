@@ -1,8 +1,43 @@
 #include <SFML/Graphics.hpp>
 #include <iostream>
+#include <fstream>
 #include "textBuffer.h"
 #include "editorUI.h"
 #include "clip/clip.h"
+#include "fileDialog.h"
+
+
+void removeText(PieceTable* pieceTable, int* characterIndex, int* selectionIndex) {
+    int change;
+    if (*selectionIndex == *characterIndex) {
+        change = pieceTable->remove(*characterIndex-1, *characterIndex);
+        *selectionIndex = *characterIndex += change;
+    }else {
+        int minValue = std::min(*characterIndex, *selectionIndex);
+        int maxValue = std::max(*characterIndex, *selectionIndex);
+        change = pieceTable->remove(minValue, maxValue);
+        *characterIndex = *selectionIndex = maxValue + change;
+    }
+    if (*characterIndex < 0 || *selectionIndex < 0)
+        characterIndex = selectionIndex = 0;
+};
+
+void addCharacter(PieceTable* pieceTable, char character, int* characterIndex, int* selectionIndex) {
+    int change;
+    if (*selectionIndex == *characterIndex) {
+        change = pieceTable->insert(*characterIndex,
+        std::string(1, static_cast<char>(character)));
+    } else {
+        change = pieceTable->replace(std::min(*characterIndex, *selectionIndex), 
+        std::max(*characterIndex, *selectionIndex),
+        std::string(1, static_cast<char>(character)));
+    }
+    *selectionIndex = *characterIndex = std::max(*characterIndex, *selectionIndex) + change;
+    if (*characterIndex < 0)
+        *selectionIndex = *characterIndex = 0;
+    else if (*characterIndex > pieceTable->length())
+        *selectionIndex = *characterIndex = pieceTable->length();
+};
 
 int main() {
     // Window
@@ -10,10 +45,14 @@ int main() {
         sf::Style::Close | sf::Style::Resize);
 
     // Main Piece Table and characterIndex variables
-    PieceTable pTable("Hello World");
+    PieceTable pTable("");
     int characterIndex = pTable.length();
     int lastRelativeLineIndex = (pTable.relativeLineIndex(characterIndex));
     int selectionIndex = pTable.length();
+
+    // Transformation values
+    int scrollX = 0;
+    int scrollY = 0;
 
     // Sizes
     int characterWidth = 15;
@@ -22,6 +61,7 @@ int main() {
     int lineGutterWidth = characterWidth * lineGutterCharacters;
     int lineGutterOffset = 7;
     int mainTextOffset = lineGutterWidth + 2 * lineGutterOffset;
+    int scrollBarWidth = 14;
 
     // Line Gutter
     sf::RectangleShape lineGutter(sf::Vector2f(lineGutterWidth + lineGutterOffset, window.getSize().y));
@@ -29,7 +69,10 @@ int main() {
 
     // Text
     sf::Font font;
-    font.openFromFile("./Resources/FiraCode.ttf");
+    if (!font.openFromFile("./Resources/FiraCode.ttf")) {
+        std::cerr << "Error loading font" << '\n';
+        return -1;
+    }
     sf::Text text{font, ""};
     sf::Text gutterText{font, ""};
     text.setCharacterSize(24);
@@ -41,10 +84,9 @@ int main() {
 
     // Objects
     Cursor* cursor = new Cursor();
-    cursor->setPos(mainTextOffset + characterWidth * (pTable.relativeLineIndex(characterIndex)), 
-        characterHeight * (pTable.getCurrentLine(characterIndex)-1));
-    Debug debug(font, sf::Vector2f(0.f, window.getSize().y-130), &pTable);
+    Debug debug(font, &pTable);
     std::vector<sf::RectangleShape> selectionBoxes;
+    sf::RectangleShape scrollBar(sf::Vector2f(14, 20));
 
     // Functions
     auto gutterTextUpdate = [&] () {
@@ -57,7 +99,23 @@ int main() {
         gutterText.setString(gutterString);
     };
     gutterTextUpdate();
+
+    auto gutterPositionUpdate = [&] () {
+        gutterText.setPosition(sf::Vector2f(0, scrollY));
+    };
+    gutterPositionUpdate();
+
+    auto cursorPositionUpdate = [&] (bool resetTimer = true) {
+        cursor->setPos(mainTextOffset + characterWidth * (pTable.relativeLineIndex(characterIndex)) + scrollX, 
+            (characterHeight) * (pTable.getCurrentLine(characterIndex)-1) + scrollY, resetTimer);
+    };
+    cursorPositionUpdate();
     
+    auto debugPositionUpdate = [&] () {
+        debug.setPosition(sf::Vector2f(0.f, window.getSize().y-170));
+    };
+    debugPositionUpdate();
+
     // Toggles
     bool showDebug = false;
 
@@ -81,45 +139,23 @@ int main() {
             if (auto* textEntered = event->getIf<sf::Event::TextEntered>()){
                 if (textEntered->unicode < 128) {
                     debug.resetDebugNode();
-                    if (static_cast<char>(textEntered->unicode) == '\b') {
-                        int minValue = std::min(characterIndex, selectionIndex);
-                        int maxValue = std::max(characterIndex, selectionIndex);
-                        if (minValue == maxValue)
-                            minValue--;
-                        int change = pTable.remove(minValue, maxValue);
-                        characterIndex = selectionIndex = std::max(characterIndex, selectionIndex) + change;
-                        if (characterIndex < 0 || selectionIndex < 0)
-                            characterIndex = selectionIndex = 0;
-                    }
-                    else {
-
-                        int change;
-                        if (selectionIndex == characterIndex) {
-                            change = pTable.insert(characterIndex,
-                            std::string(1, static_cast<char>(textEntered->unicode)));
-                        } else {
-                            change = pTable.replace(std::min(characterIndex, selectionIndex), 
-                            std::max(characterIndex, selectionIndex),
-                            std::string(1, static_cast<char>(textEntered->unicode)));
-                        }
-                        std::cout << change << "vs" << characterIndex << '\n';
-                        selectionIndex = characterIndex = std::max(characterIndex, selectionIndex) + change;
-                        if (characterIndex < 0)
-                            selectionIndex = characterIndex = 0;
-                        else if (characterIndex > pTable.length())
-                            selectionIndex = characterIndex = pTable.length();
-                    }
-                    cursor->setPos(mainTextOffset + characterWidth * (pTable.relativeLineIndex(characterIndex)), 
-                        characterHeight * (pTable.getCurrentLine(characterIndex)-1));
+                    if (static_cast<char>(textEntered->unicode) == '\b') 
+                        removeText(&pTable, &characterIndex, &selectionIndex);
+                    else 
+                        addCharacter(&pTable, static_cast<char>(textEntered->unicode), 
+                        &characterIndex, &selectionIndex);
+                        
+                    cursorPositionUpdate();
                     lastRelativeLineIndex = (pTable.relativeLineIndex(characterIndex));
                     gutterTextUpdate();
                 }
             }
 
             if (auto* keyPressed = event->getIf<sf::Event::KeyPressed>()) {
-                auto moveCursor = [&](int newIndex) {
+                auto moveCursor = [&](int newIndex, bool changeRelativeIndex = true) {
                     characterIndex = selectionIndex = newIndex;
-                    lastRelativeLineIndex = pTable.relativeLineIndex(characterIndex);
+                    if (changeRelativeIndex)
+                        lastRelativeLineIndex = pTable.relativeLineIndex(characterIndex);
                     pTable.resetNodeSave();
                 };
                 int movingIndex;
@@ -177,7 +213,7 @@ int main() {
                             break;
                         }
                         moveCursor(pTable.indexOnLine(lastRelativeLineIndex,
-                            pTable.getCurrentLine(characterIndex) - 1));
+                            pTable.getCurrentLine(characterIndex) - 1), false);
                         break;
                     case sf::Keyboard::Scancode::Down:
                         selectionChanged = true;
@@ -190,9 +226,9 @@ int main() {
                             break;
                         }
                         moveCursor(pTable.indexOnLine(lastRelativeLineIndex, 
-                            pTable.getCurrentLine(characterIndex) + 1));
+                            pTable.getCurrentLine(characterIndex) + 1), false);
                         break;
-                    case sf::Keyboard::Scancode::Escape:
+                    case sf::Keyboard::Scancode::F3:
                         pTable = PieceTable("");
                         moveCursor(0);
                         selectionIndex = 0;
@@ -201,10 +237,20 @@ int main() {
                     case sf::Keyboard::Scancode::F1:
                         showDebug = !showDebug;
                         break;
+                    case sf::Keyboard::Scancode::F2:
+                        std::cout << pTable.mHistory.historyLength() << '\n';
+                        break;
                     case sf::Keyboard::Scancode::C:
-                        if (cmdHeld) {
+                        if (cmdHeld && selectionIndex != characterIndex) {
                             clip::set_text(pTable.printSelection(std::min(characterIndex, selectionIndex),
                                 std::max(characterIndex, selectionIndex)));
+                        }
+                        break;
+                    case sf::Keyboard::Scancode::X:
+                        if (cmdHeld && selectionIndex != characterIndex) {
+                            clip::set_text(pTable.printSelection(std::min(characterIndex, selectionIndex),
+                                std::max(characterIndex, selectionIndex)));
+                            removeText(&pTable, &characterIndex, &selectionIndex);
                         }
                         break;
                     case sf::Keyboard::Scancode::V:
@@ -214,8 +260,6 @@ int main() {
                             int change = pTable.replace(std::min(characterIndex, selectionIndex), 
                             std::max(characterIndex, selectionIndex), paste);
                             selectionIndex = characterIndex = std::max(selectionIndex, characterIndex) + change;
-                            cursor->setPos(mainTextOffset + characterWidth * (pTable.relativeLineIndex(characterIndex)), 
-                                characterHeight * (pTable.getCurrentLine(characterIndex)-1));
                             lastRelativeLineIndex = (pTable.relativeLineIndex(characterIndex));
                             gutterTextUpdate();
                         }
@@ -224,16 +268,61 @@ int main() {
                         if (cmdHeld) {
                             selectionIndex = 0;
                             characterIndex = pTable.length();
-                            cursor->setPos(mainTextOffset + characterWidth * (pTable.relativeLineIndex(characterIndex)), 
-                                characterHeight * (pTable.getCurrentLine(characterIndex)-1));
                             selectionChanged = true;
                         }
                         break;
+                    case sf::Keyboard::Scancode::Z:
+                        if (cmdHeld) {
+                            if (shiftHeld) {
+                                int change = pTable.redo();
+                                if (change != -1) 
+                                    selectionIndex = characterIndex = change;
+                                selectionChanged = true;
+                                gutterTextUpdate();
+                                break;
+                            }
+
+                            sf::Vector2i change = pTable.undo();
+                            if (change.y == -1)
+                                break;
+                            if (change.x == -1)
+                                characterIndex = selectionIndex = change.y;
+                            else {
+                                selectionIndex = change.x;
+                                characterIndex = change.y;
+                            }
+                            selectionChanged = true;
+                            gutterTextUpdate();
+                            if (characterIndex > pTable.length() || selectionIndex > pTable.length()) 
+                                characterIndex = selectionIndex = pTable.length();
+                        }
+                        break;
+                    case sf::Keyboard::Scancode::O:
+                        if (cmdHeld) {
+                            std::string selectedFile = ShowOpenFileDialog();
+                            
+                            if (!selectedFile.empty()) {
+                                std::ifstream file(selectedFile);
+                                if (file.is_open()) {
+                                    pTable.open(file);
+                                    file.close();
+                                }
+                                break;
+                            }
+
+                            std::cout << "No file selected or user canceled.\n";
+                        }
+                        break;
+                    case sf::Keyboard::Scancode::S:
+                        if (cmdHeld) {
+                            pTable.save();
+                        }
+                        break;
+                    
                     default:
                         break;
                 }
-                cursor->setPos(mainTextOffset + characterWidth * (pTable.relativeLineIndex(characterIndex)), 
-                    characterHeight * (pTable.getCurrentLine(characterIndex)-1));
+                cursorPositionUpdate();
             }
 
             if (auto* keyReleased = event->getIf<sf::Event::KeyReleased>()) {
@@ -260,14 +349,13 @@ int main() {
                         sf::Mouse::getPosition(window).y <=  window.getSize().y) {
                     selectionChanged = true;
                     mouseLeftHeld = true;
-                    int line = (sf::Mouse::getPosition(window).y + characterHeight) / characterHeight;
+                    int line = (sf::Mouse::getPosition(window).y + characterHeight - scrollY) / characterHeight;
                     if (line < 1)
                         line = 1;
-                    int index = (sf::Mouse::getPosition(window).x - mainTextOffset + characterWidth / 2) 
+                    int index = (sf::Mouse::getPosition(window).x - mainTextOffset + characterWidth / 2 - scrollX) 
                         / characterWidth;
                     characterIndex = selectionIndex = pTable.indexOnLine(index, line);
-                    cursor->setPos(mainTextOffset + characterWidth * (pTable.relativeLineIndex(characterIndex)), 
-                        characterHeight * (pTable.getCurrentLine(characterIndex)-1));
+                    cursorPositionUpdate();
                 }
             }
 
@@ -276,6 +364,28 @@ int main() {
                     mouseLeftHeld = false;
             }
 
+            if (auto* mouseWheelScrolled = event->getIf<sf::Event::MouseWheelScrolled>()) {
+                switch (mouseWheelScrolled->wheel) {
+                    case sf::Mouse::Wheel::Vertical:
+                        scrollY += mouseWheelScrolled->delta;
+                        if (scrollY > 0) 
+                            scrollY = 0;
+                        text.setPosition(sf::Vector2f(mainTextOffset + scrollX, scrollY));
+                        cursorPositionUpdate(false);
+                        gutterPositionUpdate();
+                        selectionChanged = true;
+                        break;
+                    case sf::Mouse::Wheel::Horizontal:
+                        scrollX += mouseWheelScrolled->delta;
+                        if (scrollX > 0) 
+                            scrollX = 0;
+                        text.setPosition(sf::Vector2f(mainTextOffset + scrollX, scrollY));
+                        cursorPositionUpdate(false);
+                        selectionChanged = true;
+                        break;
+                }
+            } 
+            
             if (auto resized = event->getIf<sf::Event::Resized>()) {
                 sf::View view = window.getView();
                 view.setSize(sf::Vector2f(static_cast<float>(resized->size.x), static_cast<float>(resized->size.y)));
@@ -283,12 +393,12 @@ int main() {
                     static_cast<float>(resized->size.y) / 2.f));
                 window.setView(view);
                 lineGutter.setSize(sf::Vector2f(lineGutterWidth + lineGutterOffset, window.getSize().y));
-                debug.setPosition(sf::Vector2f(0.f, window.getSize().y - 130));
+                debugPositionUpdate();
             }
             
             // Update input objects
             if (showDebug)
-                debug.update(event, characterIndex, lastRelativeLineIndex, selectionIndex,
+                debug.update(event, characterIndex, lastRelativeLineIndex, selectionIndex, scrollY,
                     mouseLeftHeld, cmdHeld, shiftHeld, optHeld);
         }
 
@@ -298,18 +408,17 @@ int main() {
                 sf::Mouse::getPosition(window).y > 0 && 
                 sf::Mouse::getPosition(window).y <=  window.getSize().y){
             if (mouseLeftHeld) {
-                int line = (sf::Mouse::getPosition(window).y + characterHeight) / characterHeight;
+                int line = (sf::Mouse::getPosition(window).y + characterHeight - scrollY) / characterHeight;
                 if (line < 1)
                     line = 1;
-                int index = (sf::Mouse::getPosition(window).x - mainTextOffset + characterWidth / 2) 
+                int index = (sf::Mouse::getPosition(window).x - mainTextOffset + characterWidth / 2 - scrollX) 
                     / characterWidth;
                 characterIndex = pTable.indexOnLine(index, line);
                 if (line != lastLine || index != lastIndex) {
-                    cursor->setPos(mainTextOffset + characterWidth * (pTable.relativeLineIndex(characterIndex)), 
-                        characterHeight * (pTable.getCurrentLine(characterIndex)-1));
                     lastLine = line;
                     lastIndex = index;
                     selectionChanged = true;
+                    cursorPositionUpdate();
                 }
             }
             window.setMouseCursor(sf::Cursor::createFromSystem(sf::Cursor::Type::Text).value());
@@ -328,7 +437,8 @@ int main() {
                     continue;
                 sf::RectangleShape selectionBox;
                 selectionBox.setSize(sf::Vector2f((i[1]-i[0]) * characterWidth, characterHeight));
-                selectionBox.setPosition(sf::Vector2f(i[0] * characterWidth + mainTextOffset, characterHeight * (i[2]-1)));
+                selectionBox.setPosition(sf::Vector2f(i[0] * characterWidth + mainTextOffset + scrollX, 
+                    characterHeight * (i[2]-1) + scrollY));
                 selectionBox.setFillColor(sf::Color(40, 67, 107));
                 selectionBoxes.push_back(selectionBox);
             }
@@ -342,13 +452,12 @@ int main() {
 
         // Drawing
         window.clear();
-        window.draw(lineGutter);
-        window.draw(gutterText);
-        for (sf::RectangleShape& i : selectionBoxes) {
+        for (sf::RectangleShape& i : selectionBoxes) 
             window.draw(i);
-        }
         window.draw(text);
         cursor->draw(&window);
+        window.draw(lineGutter);
+        window.draw(gutterText);
         if (showDebug)
             debug.draw(&window);
         window.display();

@@ -2,6 +2,9 @@
 #define TEXTBUFFER_H
 
 #include <string>
+#include "history.h"
+#include <SFML/Graphics.hpp>
+#include <fstream>
 
 struct Node {
     std::string data;
@@ -23,6 +26,8 @@ private:
     int mLastIndex;
 
 public:
+    History mHistory; // make private later
+
     PieceTable(const std::string& initialData = "");
 
     std::string print() const;
@@ -33,7 +38,8 @@ public:
 
     int remove(int startIndex, int endIndex);
 
-    int replace(int startIndex, int endIndex, const std::string& data);
+    int replace(int startIndex, int endIndex, const std::string& data, 
+        bool isRecalled = false, bool undo = false, bool resetNode = true);
 
     void resetNodeSave();
 
@@ -48,6 +54,14 @@ public:
     int indexOnLine(int index, int line) const;
 
     std::vector<std::array<int, 3>> getSelectionBoxes(int startIndex, int endIndex);
+
+    sf::Vector2i undo();
+
+    int redo();
+
+    void open(std::ifstream& file);
+
+    void save();
 
     //DEBUG
     int countNodes() const;

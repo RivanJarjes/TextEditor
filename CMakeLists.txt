@@ -6,7 +6,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 set(CLIP_EXAMPLES OFF CACHE BOOL "Compile clip examples")
 set(CLIP_TESTS OFF CACHE BOOL "Compile clip tests")
 
-add_executable(TextEditor main.cpp textBuffer.cpp editorUI.cpp)
+add_executable(TextEditor main.cpp textBuffer.cpp editorUI.cpp history.cpp FileDialog.mm)
 
 add_subdirectory(clip)
 target_compile_features(TextEditor PUBLIC cxx_std_23)

@@ -1,5 +1,9 @@
 #include <iostream>
 #include "textBuffer.h"
+#include "history.h"
+#include "fileDialog.h"
+#include <SFML/Graphics.hpp>
+#include <fstream>
 
 // For debug purposes: each node has a discrete ID which increments from the previously created node.
 std::atomic<int> nodeID{};
@@ -84,7 +88,7 @@ int PieceTable::insert(int startIndex, const std::string& data) {
                         else
                             whiteSpace = 0;
             }
-            else if(currentNode-> line > line)
+            else if(currentNode->line > line)
                 break;
             currentNode = currentNode->next;
         }
@@ -102,6 +106,9 @@ int PieceTable::insert(int startIndex, const std::string& data) {
             currentNode->startIndex += modifiedData.length();
             currentNode = currentNode->next;
         }
+        std::string emptyString = "";
+        mHistory.addToHistory(modifiedData, emptyString, startIndex, startIndex,
+            true);
         return modifiedData.length();
     }
     mLastIndex = -1;
@@ -147,8 +154,7 @@ int PieceTable::remove(int startIndex, int endIndex) {
         }
     }
     // Calls replace function without any data
-    replace(startIndex, endIndex, "");
-
+    replace(startIndex, endIndex, "", false, false, false);
     return -(endIndex - startIndex);
 }
 
@@ -231,46 +237,53 @@ int PieceTable::indexOnLine(int index, int line) const {
 }
 
 // Main text manipulation functionality
-int PieceTable::replace(int startIndex, int endIndex, const std::string& data) {
-    if (startIndex < 0 || endIndex > mLength || startIndex > endIndex) {
+int PieceTable::replace(int startIndex, int endIndex, const std::string& data, bool isRecalled, bool ignoreUndo, bool resetNode) {
+    if (startIndex < 0 || endIndex > mLength || startIndex > endIndex) 
        return 0;
-    }
+    
+    if (resetNode)
+        resetNodeSave();
 
     // Counts how many linebreaks there are to calculate new lines, as well as changes tabs to 4 spaces
     int LineBreaks = 0;
     std::string modifiedData;
+    std::string removedData = "";
+    if (startIndex != endIndex && !ignoreUndo) {
+        removedData = printSelection(startIndex, endIndex);
+    }
 
     for (char c : data) {
         if (c == '\n') {
             LineBreaks++;
             modifiedData.push_back('\n');
         }
-        else if (c == '\t') {
+        else if (c == '\t') 
             modifiedData += "    ";
-        }
-        else {
+        else 
             modifiedData.push_back(c);
-        }
     }
 
     if ((LineBreaks == 1 && modifiedData[0] != '\n') || LineBreaks > 1) {
         int change = 0;
         int start = 0;
         int lastEndIndex = -1;
+
+        mHistory.addToHistory(modifiedData, removedData, startIndex, endIndex, false);
         while (true) {
             int pos = modifiedData.find('\n', start + 1);
             if (pos == std::string::npos) {
                 change += replace(lastEndIndex, lastEndIndex, 
-                    modifiedData.substr(start));
+                    modifiedData.substr(start), false, true);
                 break;
             }
             if (lastEndIndex == -1) {
-                change += replace(startIndex, endIndex, modifiedData.substr(start, (pos - start)));
+                change += replace(startIndex, endIndex, modifiedData.substr(start, (pos - start)), 
+                    false, true);
                 lastEndIndex = startIndex + (pos - start);
             }
             else {
                 change += replace(lastEndIndex, lastEndIndex, 
-                    modifiedData.substr(start, (pos - start)));
+                    modifiedData.substr(start, (pos - start)), false, true);
                 lastEndIndex += (pos - start);
             }
             start = pos;
@@ -327,7 +340,8 @@ int PieceTable::replace(int startIndex, int endIndex, const std::string& data) {
         else
             nextData = "";
 
-        Node* newNode = new Node(nextData, currentNode->next, currentNode->startIndex + offset, currentNode->line);
+        Node* newNode = new Node(nextData, currentNode->next, currentNode->startIndex + offset, 
+            currentNode->line);
         currentNode->next = newNode;
         currentNode->data = prevData;
     }
@@ -365,7 +379,8 @@ int PieceTable::replace(int startIndex, int endIndex, const std::string& data) {
         }
         else
             nextData = "";
-        Node* newNode = new Node(nextData, currentNode->next, currentNode->startIndex + offset, currentNode->line);
+        Node* newNode = new Node(nextData, currentNode->next, currentNode->startIndex + offset, 
+            currentNode->line);
         currentNode->next = newNode;
         currentNode->data = prevData;
         toDelete.push_back(currentNode);
@@ -380,40 +395,35 @@ int PieceTable::replace(int startIndex, int endIndex, const std::string& data) {
     anchorNode->next = nullptr;
 
     // Deletes all nodes in pile
-    int carry = 0;
-    int originalLinebreaks = LineBreaks;
+    int lineBreaksRemoved = 0;
     while (!toDelete.empty()) {
         Node* nodeToDelete = toDelete.back();
         toDelete.pop_back();
         if (nodeToDelete) {
-            for (int i = 0; i < nodeToDelete->data.length(); i++) {
-                bool foundLineBreak = false;
-                if (nodeToDelete->data[i] == '\n'){
-                    if (originalLinebreaks > 0)
-                        carry++;
-                    LineBreaks--; 
-                }// If deleting line breaks, alter the line count
-            }
+            for (int i = 0; i < nodeToDelete->data.length(); i++) 
+                if (nodeToDelete->data[i] == '\n')
+                    lineBreaksRemoved++; // If deleting line breaks, alter the line count
             delete nodeToDelete;
             nodeToDelete = nullptr; // Dereferences to avoid memory leak
         }
     }
     // Updates after final change in lines
-    mLines += LineBreaks;
+    mLines += LineBreaks - lineBreaksRemoved;
 
     // Creates node to either store the new data or just becomes the first node on the right if no data
     Node* newDataNode;
     if (!modifiedData.empty()) {
-        int line = anchorNode->line + LineBreaks + carry;
+        int line = anchorNode->line + LineBreaks;
         if (line < anchorNode->line)
             line = anchorNode->line;
-        newDataNode = new Node(modifiedData, firstRightNode,anchorNode->startIndex + anchorNode->data.length(),
-            line);
+        newDataNode = new Node(modifiedData, firstRightNode,
+            anchorNode->startIndex + anchorNode->data.length(), line);
         mLastNode = newDataNode;
-        mLastIndex = startIndex;
     }
-    else
+    else{
         newDataNode = firstRightNode;
+        mLastNode = nullptr;
+    }
 
     // Attaches to our original anchor
     anchorNode->next = newDataNode;
@@ -427,13 +437,48 @@ int PieceTable::replace(int startIndex, int endIndex, const std::string& data) {
                 nextNode->startIndex += change;
             else
                 nextNode->startIndex = prevNode->startIndex + prevNode->data.length();
-            nextNode->line += LineBreaks;
+            nextNode->line += LineBreaks - lineBreaksRemoved;
             prevNode = nextNode;
             nextNode = prevNode->next;
         }
     }
 
+    if (!ignoreUndo)
+        mHistory.addToHistory(modifiedData, removedData, startIndex, endIndex, endIndex == mLastIndex && !mLastNode);
+    
+    mLastIndex = startIndex;
+
     return data.length() - (endIndex - startIndex);
+}
+
+sf::Vector2i PieceTable::undo() {
+    Action* action = mHistory.getLastAction();
+    if (action){
+        if (!action->data.empty())
+            replace(action->startIndex, action->startIndex + action->data.length(), "", false,
+                true);
+        if (!action->removedData.empty())
+            replace(action->startIndex, action->startIndex, action->removedData, false,
+                true);
+        int left = !action->multipleActions ? action->startIndex : -1;
+        int right = action->startIndex + action->removedData.length();
+        if (left != -1 && abs(left - right) == 1) 
+            left = -1;
+        return sf::Vector2i(left, right);
+    }
+    return sf::Vector2i(-1, -1);
+}
+
+int PieceTable::redo() {
+    Action* action = mHistory.getLastUndo();
+    if (action) {
+        if (action->startIndex != action->endIndex)
+            replace(action->startIndex, action->endIndex, "", false, true);
+        if (!action->data.empty())
+            replace(action->startIndex, action->startIndex, action->data, false, true);
+        return action->startIndex + action->data.length();
+    }
+    return -1;
 }
 
 int PieceTable::length() const {
@@ -458,6 +503,24 @@ int PieceTable::countNodes() const {
 // Returns main node for node analysis. Should only ever be accessible during debug.
 Node* PieceTable::mainNode() const {
     return mPieces;
+}
+
+void PieceTable::open(std::ifstream& file) {
+    mHistory.clearHistory();
+    remove(0, mLength);
+    std::string line;
+    while (std::getline(file, line)) {
+        replace(mLength, mLength, line + '\n', false, true);
+    }
+}
+
+void PieceTable::save() {
+    std::string file = print();
+    if (ShowSaveDialogAndWriteString(file)) {
+        std::cout << "File was successfully saved.\n";
+    } else {
+        std::cout << "Save was canceled or failed.\n";
+    }
 }
 
 //Test Cases

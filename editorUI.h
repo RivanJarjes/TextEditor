@@ -19,9 +19,9 @@ public:
 
     sf::Vector2<float> getPos() const;
 
-    void setPos(sf::Vector2<float> pos);
+    void setPos(sf::Vector2<float> pos, bool resetBlinkTimer = true);
 
-    void setPos(float x, float y);
+    void setPos(float x, float y, bool resetBlinkTimer = true);
 
     void update();
 
@@ -35,12 +35,12 @@ private:
     Node* currentNode;
     int const debugTextSize = 16;
 public:
-    Debug(sf::Font& font, sf::Vector2f position, PieceTable* pieceTable);
+    Debug(sf::Font& font, PieceTable* pieceTable);
 
     void resetDebugNode();
 
     void update(std::optional<sf::Event> event, int character, 
-        int lastRelativeLineIndex, int selectionIndex, 
+        int lastRelativeLineIndex, int selectionIndex, int scrollY,
         bool mouseLeftHeld, bool cmdHeld, bool shiftHeld, bool optHeld);
 
     void setPosition(sf::Vector2f position);
