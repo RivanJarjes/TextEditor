@@ -12,3 +12,4 @@ A basic text editor with a programming line gutter and MacOS compliant functions
 * Color-change for keywords based on a given JSON file.
 * Actual scrollbar
 * More memory efficient by splitting large files into parts
+* Clean up and comment code better
