@@ -4,8 +4,8 @@ A basic text editor with a programming line gutter and MacOS compliant functions
 
 ## Functions
 * Complete text system in a memory efficient buffer (Piece Table implementation with line-cached nodes, able to handle large documents)
-* Full input system (mouse, shortcuts)
-* Copy/Paste
+* Full input system (mouse, shortcuts, scrolling)
+* Copy/Paste via the clip library
 * Uses Cocoa for file opening and saving on MacOS
 
 ## To-Do
